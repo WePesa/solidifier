@@ -1,9 +1,10 @@
 def purify_json(fname):
-    f = open(fname, 'r')
-    source = f.read()
-    f.close()
-    begin = source.index('{')
-    end = source.rindex('}')
-    f = open(fname, 'w')
-    f.write(source[begin:(end + 1)])
-    f.close()
+    with open(fname, 'r') as f:
+        source = f.read()
+        f.close()
+        begin = source.index('{')
+        end = source.rindex('}')
+    with open(fname, 'w') as f:
+        f.write(source[begin:(end + 1)])
+        f.close()
+
