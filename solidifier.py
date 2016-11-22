@@ -15,6 +15,10 @@ if __name__ == '__main__':
     utils.purify_json(fname)
     t = sol2c.CTranslator()
     C_code = t.translate_to_C(fname)
-    print C_code
+    
+    f = open('tmp.c', 'w')
+    f.write(C_code)
+    f.close()
 
+    os.system('sea pf tmp.c')
 

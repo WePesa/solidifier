@@ -33,6 +33,7 @@ class SolKeywords:
     key_for = 'ForStatement'
     key_while = 'WhileStatement'
     key_idx_access = 'IndexAccess'
+    key_pragma = 'PragmaDirective'
 
 
 """
@@ -49,6 +50,16 @@ class CTranslator:
     List of keywords
     """
     keywords = None
+
+    """
+    Assume, Assert and Nondet functions
+    """
+    verif_functions = None
+
+    """
+    Header of the C file
+    """
+    C_header = None
 
     """
     Helper functions
@@ -103,6 +114,8 @@ class CTranslator:
 
     def t_function(self, data):
         at = data['attributes']
+        if at['name'] in self.verif_functions:
+            return
         params_node = data['children'][0]
         ret_node = data['children'][1]
         block_node = data['children'][2]
@@ -216,7 +229,8 @@ class CTranslator:
     def t_function_call(self, data):
         self.translate(data['children'][0])
         self.add('(')
-        self.translate(data['children'][1])
+        if len(data['children']) > 1:
+            self.translate(data['children'][1])
         self.add(')')
 
     def t_member_access(self, data):
@@ -274,6 +288,9 @@ class CTranslator:
         self.translate(data['children'][1])
         self.add(']')
 
+    def t_pragma(self, data):
+        pass
+
     """
     List of function pointers
     """
@@ -288,7 +305,7 @@ class CTranslator:
     def translate_to_C(self, fname):
         json_data = open(fname)
         data = json.load(json_data)
-        self.C_source = ''
+        self.C_source = self.C_header
         self.translate(data)
         json_data.close()
         return self.C_source
@@ -297,6 +314,8 @@ class CTranslator:
     Constructor
     """
     def __init__(self):
+        self.verif_functions = ['assume', 'assert', 'nondet_uint']
+        self.C_header = '#include "seahorn/seahorn.h"\n#include "solidifier.h"\n'
         self.keywords = SolKeywords()
         self.function_list = {
                 self.keywords.key_source_unit : self.t_source_unit,
@@ -326,5 +345,6 @@ class CTranslator:
                 self.keywords.key_for : self.t_for,
                 self.keywords.key_while : self.t_while,
                 self.keywords.key_idx_access : self.t_idx_access,
+                self.keywords.key_pragma : self.t_pragma,
                 }
 
