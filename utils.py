@@ -8,3 +8,13 @@ def purify_json(fname):
         f.write(source[begin:(end + 1)])
         f.close()
 
+def calculate_program_hash():
+    from hashlib import sha256
+    hasher = sha256()
+    files = ['solidifier', 'solidifier.h', 'sol2c.py', 'utils.py']
+    for f in files:
+        with open(f, 'r') as of:
+            buf = of.read()
+            hasher.update(buf)
+    return hasher.hexdigest()
+

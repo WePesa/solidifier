@@ -11,7 +11,7 @@ Options:
     translate   Translate the solidity code to C.
 
     -h --help     Show this screen.
-    --version     Show version.
+    -v --version     Show version.
     --verbose     Print the output from the model checker.
     -o <outfile>  Specify output file (requires --verbose).
     -c <cfile>    Specify output translated C file.
@@ -26,13 +26,17 @@ import sol2c
 import utils
 
 if __name__ == '__main__':
-    arguments = docopt(__doc__, version='El solidificador')
+    arguments = docopt(__doc__)
     fname = arguments['<solfile>']
     outname = arguments['-o']
     verbose = arguments['--verbose']
     verify = arguments['verify']
     translate = arguments['translate']
     coutfile = arguments['-c']
+
+    if '--version' in arguments:
+        print utils.calculate_program_hash()
+        sys.exit(1)
 
     if verify or translate:
         solc_process = subprocess.Popen(['solc', '--ast-json', fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
