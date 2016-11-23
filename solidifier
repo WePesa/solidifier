@@ -74,6 +74,11 @@ if __name__ == '__main__':
                     f.write(out)
             else:
                 print out
+        result = out.split('\n')[-2]
+        if result == 'unsat':
+            print 'Your program is safe!'
+        else:
+            print 'Your program has a bug!'
 
         if coutfile == None:
             os.remove(cfile)
