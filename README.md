@@ -13,7 +13,7 @@ a built-in _assert_ function, we have the following workaround:
 
 1. In the beginning of your contract, add the code _function assert (bool) {}_
 2. Use _assert(property)_ to tell Solidifier the conditions you want to verify
-3. Now run _solidifier.py code.sol_
+3. Now run _solidifier code.sol_
 
 The assertion you are verifying might be inside functions that are called by external entities.
 To ensure that these assertions are also verifiable, you can create a function
