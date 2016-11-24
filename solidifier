@@ -79,6 +79,8 @@ if __name__ == '__main__':
                     f.write(out)
             else:
                 print out
+        if seahorn_process.returncode != 0:
+            sys.exit(seahorn_process.returncode)
         result = out.split('\n')[-2]
         if result == 'unsat':
             print 'Your program is safe!'
@@ -88,3 +90,4 @@ if __name__ == '__main__':
         if coutfile == None:
             os.remove(cfile)
 
+        sys.exit(0)
