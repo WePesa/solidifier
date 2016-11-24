@@ -33,8 +33,9 @@ if __name__ == '__main__':
     verify = arguments['verify']
     translate = arguments['translate']
     coutfile = arguments['-c']
+    version = arguments['--version']
 
-    if '--version' in arguments:
+    if version:
         print utils.calculate_program_hash()
         sys.exit(1)
 
