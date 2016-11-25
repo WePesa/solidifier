@@ -33,8 +33,9 @@ if __name__ == '__main__':
     verify = arguments['verify']
     translate = arguments['translate']
     coutfile = arguments['-c']
+    version = arguments['--version']
 
-    if '--version' in arguments:
+    if version:
         print utils.calculate_program_hash()
         sys.exit(1)
 
@@ -42,7 +43,7 @@ if __name__ == '__main__':
         solc_process = subprocess.Popen(['solc', '--ast-json', fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = solc_process.communicate()
         if solc_process.returncode != 0:
-            print 'Error running solc:\n', err
+            print 'Compilation error:\n', err
             sys.exit(1)
         (_, tmp_json) = mkstemp()
 
@@ -56,7 +57,7 @@ if __name__ == '__main__':
         if coutfile != None:
             filename, fileext = os.path.splitext(coutfile)
             if fileext != '.c':
-                print 'Output C file should have .c extension'
+                print 'Solidifier error: Output C file should have .c extension'
                 sys.exit(1)
             cfile = coutfile
             with open(coutfile, 'w') as f:
@@ -78,6 +79,9 @@ if __name__ == '__main__':
                     f.write(out)
             else:
                 print out
+        if seahorn_process.returncode != 0:
+            print 'Verification error:\n', err
+            sys.exit(seahorn_process.returncode)
         result = out.split('\n')[-2]
         if result == 'unsat':
             print 'Your program is safe!'
@@ -87,3 +91,4 @@ if __name__ == '__main__':
         if coutfile == None:
             os.remove(cfile)
 
+        sys.exit(0)
