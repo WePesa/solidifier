@@ -34,6 +34,7 @@ class SolKeywords:
     key_while = 'WhileStatement'
     key_idx_access = 'IndexAccess'
     key_pragma = 'PragmaDirective'
+    key_mapping = 'Mapping'
 
 
 """
@@ -229,8 +230,10 @@ class CTranslator:
     def t_function_call(self, data):
         self.translate(data['children'][0])
         self.add('(')
-        if len(data['children']) > 1:
-            self.translate(data['children'][1])
+        for i in range(1, len(data['children'])):
+            if i > 1:
+                self.add(',')
+            self.translate(data['children'][i])
         self.add(')')
 
     def t_member_access(self, data):
@@ -291,6 +294,12 @@ class CTranslator:
     def t_pragma(self, data):
         pass
 
+    def t_mapping(self, data):
+        self.add('mapping_')
+        self.translate(data['children'][0])
+        self.add('_')
+        self.translate(data['children'][1])
+
     """
     List of function pointers
     """
@@ -346,5 +355,6 @@ class CTranslator:
                 self.keywords.key_while : self.t_while,
                 self.keywords.key_idx_access : self.t_idx_access,
                 self.keywords.key_pragma : self.t_pragma,
+                self.keywords.key_mapping : self.t_mapping,
                 }
 
