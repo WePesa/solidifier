@@ -34,6 +34,7 @@ class SolKeywords:
     key_while = 'WhileStatement'
     key_idx_access = 'IndexAccess'
     key_pragma = 'PragmaDirective'
+    key_mapping = 'Mapping'
 
 
 """
@@ -99,8 +100,9 @@ class CTranslator:
     def t_children(self, data):
         for c in data['children']:
             self.translate(c)
-            if self.close_command(c['name']):
-                self.add_line(';')
+            if data['name'] in [self.keywords.key_block, self.keywords.key_contract]:
+                if self.close_command(c['name']):
+                    self.add_line(';')
 
     def t_source_unit(self, data):
         self.check_type(data, self.keywords.key_source_unit)
@@ -147,8 +149,14 @@ class CTranslator:
     def t_var_decl(self, data):
         at = data['attributes']
         var_name = at['name']
-        self.t_children(data)
-        self.add(' ' + var_name)
+        if data['children'][0]['name'] == self.keywords.key_array_typename:
+            self.translate(data['children'][0]['children'][0])
+            self.add(' ' + var_name + '[')
+            self.translate(data['children'][0]['children'][1])
+            self.add(']')
+        else:
+            self.t_children(data)
+            self.add(' ' + var_name)
         
     def t_var_def_stat(self, data):
         self.translate(data['children'][0])
@@ -229,8 +237,10 @@ class CTranslator:
     def t_function_call(self, data):
         self.translate(data['children'][0])
         self.add('(')
-        if len(data['children']) > 1:
-            self.translate(data['children'][1])
+        for i in range(1, len(data['children'])):
+            if i > 1:
+                self.add(',')
+            self.translate(data['children'][i])
         self.add(')')
 
     def t_member_access(self, data):
@@ -244,8 +254,9 @@ class CTranslator:
         self.translate(data['children'][1])
 
     def t_elem_typename_expr(self, data):
-        # Cast to primitive type
-        self.not_supported(data['attributes']['value'])
+        self.add('(')
+        self.add(data['attributes']['value'])
+        self.add(')')
 
     def t_elem_typename(self, data):
         self.add(data['attributes']['name'])
@@ -255,10 +266,10 @@ class CTranslator:
 
     def t_array_typename(self, data):
         self.translate(data['children'][0])
-        self.add('[')
-        if len(data['children']) > 1:
-            self.translate(data['children'][1])
-        self.add(']')
+        #self.add('[')
+        #if len(data['children']) > 1:
+        #    self.translate(data['children'][1])
+        #self.add(']')
 
     def t_for(self, data):
         self.add('for (')
@@ -287,9 +298,17 @@ class CTranslator:
         self.add('[')
         self.translate(data['children'][1])
         self.add(']')
+        if 'mapping' in data['children'][0]['attributes']['type']:
+            self.add('.data')
 
     def t_pragma(self, data):
         pass
+
+    def t_mapping(self, data):
+        self.add('mapping_')
+        self.translate(data['children'][0])
+        self.add('_')
+        self.translate(data['children'][1])
 
     """
     List of function pointers
@@ -346,5 +365,6 @@ class CTranslator:
                 self.keywords.key_while : self.t_while,
                 self.keywords.key_idx_access : self.t_idx_access,
                 self.keywords.key_pragma : self.t_pragma,
+                self.keywords.key_mapping : self.t_mapping,
                 }
 
