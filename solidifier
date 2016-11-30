@@ -3,8 +3,8 @@
 """Solidifier.
 
 Usage:
-    solidifier.py [verify | translate] [-o <outfile>] [-c <cfile>] [--verbose] <solfile> 
-    solidifier.py -h | --help | --version
+    solidifier [verify | translate] [-o <outfile>] [-c <cfile>] [--verbose] <solfile> 
+    solidifier -h | --help | --version
 
 Options:
     verify      Verify the solifity code.
