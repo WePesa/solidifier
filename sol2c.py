@@ -36,6 +36,7 @@ class SolKeywords:
     key_pragma = 'PragmaDirective'
     key_mapping = 'Mapping'
     key_type_address = 'address'
+    key_throw = 'Throw'
 
 
 """
@@ -64,6 +65,11 @@ class CTranslator:
     C_header = None
 
     """
+    Custom mappings
+    """
+    mappings = None
+
+    """
     Helper functions
     """
     def error(self, msg):
@@ -71,7 +77,7 @@ class CTranslator:
         sys.exit(1)
 
     def not_supported(self, op):
-        self.error('Operation not supported: ' + op)
+        self.error('Operation not supported: ' + str(op))
 
     def check_type(self, data, keyword):
         if data['name'] != keyword:
@@ -93,7 +99,13 @@ class CTranslator:
         self.C_source += '//' + comment
 
     def close_command(self, cname):
-        return cname in ['UnaryOperation', 'Assignment', 'VariableDeclaration', 'VariableDefinitionStatement', 'FunctionCall']
+        return cname in ['UnaryOperation', 'Assignment', 'VariableDeclaration', 'VariableDefinitionStatement', 'FunctionCall', 'ExpressionStatement']
+
+    def create_mapping(self, mapping, type1, type2):
+        line = 'struct _' + mapping + '\n{\n\tuint id;\n\t' + type2 + ' data[NONDET_SIZE];\n};\ntypedef struct _' + mapping + ' ' + mapping + ';\n'
+        self.add_line(line)
+        self.mappings.append(mapping)
+
 
     """
     Translators
@@ -101,7 +113,7 @@ class CTranslator:
     def t_children(self, data):
         for c in data['children']:
             self.translate(c)
-            if data['name'] in [self.keywords.key_block, self.keywords.key_contract]:
+            if data['name'] in [self.keywords.key_block, self.keywords.key_contract, self.keywords.key_struct]:
                 if self.close_command(c['name']):
                     self.add_line(';')
 
@@ -150,10 +162,14 @@ class CTranslator:
     def t_var_decl(self, data):
         at = data['attributes']
         var_name = at['name']
-        if data['children'][0]['name'] == self.keywords.key_array_typename:
-            self.translate(data['children'][0]['children'][0])
+        c0 = data['children'][0]
+        if c0['name'] == self.keywords.key_array_typename:
+            self.translate(c0['children'][0])
             self.add(' ' + var_name + '[')
-            self.translate(data['children'][0]['children'][1])
+            if len(c0['children']) > 1:
+                self.translate(c0['children'][1])
+            else:
+                self.add('NONDET_SIZE')
             self.add(']')
         else:
             self.t_children(data)
@@ -209,11 +225,13 @@ class CTranslator:
         self.add(data['attributes']['name'])
 
     def t_struct(self, data):
-        self.add_line('struct ' + data['attributes']['name'])
+        sname = data['attributes']['name']
+        self.add_line('struct ' + '_' + sname)
         self.add_line('{')
         self.t_children(data)
         self.add_newline()
         self.add_line('};')
+        self.add_line('typedef struct _' + sname + ' ' + sname + ';')
 
     def t_if(self, data):
         self.add('if (')
@@ -231,11 +249,12 @@ class CTranslator:
             self.add_line('}')
 
     def t_expr(self, data):
-        for child in data['children']:
-            self.translate(child)
-            cname = child['name']
-            if self.close_command(cname):
-                self.add_line(';')
+        self.t_children(data)
+        #for child in data['children']:
+            #self.translate(child)
+            #cname = child['name']
+            #if self.close_command(cname):
+            #    self.add_line(';')
             
     def t_function_call(self, data):
         c = data['children'][0]
@@ -304,20 +323,34 @@ class CTranslator:
 
     def t_idx_access(self, data):
         self.translate(data['children'][0])
+        if 'mapping' in data['children'][0]['attributes']['type']:
+            self.add('.data')
         self.add('[')
         self.translate(data['children'][1])
         self.add(']')
-        if 'mapping' in data['children'][0]['attributes']['type']:
-            self.add('.data')
 
     def t_pragma(self, data):
         pass
 
     def t_mapping(self, data):
-        self.add('mapping_')
-        self.translate(data['children'][0])
-        self.add('_')
-        self.translate(data['children'][1])
+        c0 = data['children'][0]
+        c1 = data['children'][1]
+        if c0['name'] != self.keywords.key_elem_typename:
+            self.not_supported(data)
+        name0 = c0['attributes']['name']
+        name1 = c1['attributes']['name']
+        custom_mapping = 'mapping_' + name0 + '_' + name1
+        if not custom_mapping in self.mappings:
+            self.create_mapping(custom_mapping, name0, name1)
+        self.add(custom_mapping)
+        #self.add('mapping_')
+        #self.translate(data['children'][0])
+        #self.add('_')
+        #self.translate(data['children'][1])
+
+    def t_throw(self, data):
+        self.add_line('throw();')
+        
 
     """
     List of function pointers
@@ -330,13 +363,14 @@ class CTranslator:
     def translate(self, data):
         name = data['name']
         if not self.function_list.has_key(name):
-            self.error('Solidifier:\nOperation not supported: ' + data)
+            self.error('Solidifier:\nOperation not supported: ' + str(data))
         self.function_list[data['name']](data)
 
     def translate_to_C(self, fname):
         json_data = open(fname)
         data = json.load(json_data)
         self.C_source = self.C_header
+        self.mappings = []
         self.translate(data)
         json_data.close()
         return self.C_source
@@ -378,5 +412,6 @@ class CTranslator:
                 self.keywords.key_idx_access : self.t_idx_access,
                 self.keywords.key_pragma : self.t_pragma,
                 self.keywords.key_mapping : self.t_mapping,
+                self.keywords.key_throw : self.t_throw,
                 }
 

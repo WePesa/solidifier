@@ -6,18 +6,12 @@
 
 typedef int bool;
 typedef int uint;
+typedef int bytes32;
+typedef int uint256;
+
+#define NONDET_SIZE
 
 int nondet();
-
-#define MAX_MAPPING_SIZE
-
-struct _mapping_uint_uint
-{
-    uint id;
-    uint data[MAX_MAPPING_SIZE];
-};
-
-typedef struct _mapping_uint_uint mapping_uint_uint;
 
 #define false 0
 #define true 1
@@ -39,3 +33,8 @@ address_send(address *from, address *to, uint val)
 }
 
 address this;
+
+void
+throw()
+{
+}

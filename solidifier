@@ -84,11 +84,12 @@ if __name__ == '__main__':
                 #print 'Verification error:\n', err
                 #sys.exit(seahorn_process.returncode)
                 print 'Solidifier: contract contains unsupported features'
-            result = out.split('\n')
-            if 'unsat' in result:
-                print 'Your program is safe!'
             else:
-                print 'Your program has a bug!'
+                result = out.split('\n')
+                if 'unsat' in result:
+                    print 'Your program is safe!'
+                else:
+                    print 'Your program has a bug!'
 
         finally:
             if coutfile == None:
