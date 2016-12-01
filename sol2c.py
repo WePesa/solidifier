@@ -319,6 +319,9 @@ class CTranslator:
     Main demux
     """
     def translate(self, data):
+        name = data['name']
+        if not self.function_list.has_key(name):
+            self.error('Solidifier:\nOperation not supported: ' + data)
         self.function_list[data['name']](data)
 
     def translate_to_C(self, fname):

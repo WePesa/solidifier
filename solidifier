@@ -80,8 +80,9 @@ if __name__ == '__main__':
             else:
                 print out
         if seahorn_process.returncode != 0:
-            print 'Verification error:\n', err
-            sys.exit(seahorn_process.returncode)
+            #print 'Verification error:\n', err
+            #sys.exit(seahorn_process.returncode)
+            print 'Solidifier: contract contains unsupported features'
         result = out.split('\n')
         if 'unsat' in result:
             print 'Your program is safe!'
