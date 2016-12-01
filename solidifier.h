@@ -21,3 +21,21 @@ typedef struct _mapping_uint_uint mapping_uint_uint;
 
 #define false 0
 #define true 1
+
+struct _address
+{
+    uint x;
+    uint balance;
+};
+
+typedef struct _address address;
+
+uint
+address_send(address *from, address *to, uint val)
+{
+    from->balance -= val;
+    to->balance += val;
+    return 1;
+}
+
+address this;

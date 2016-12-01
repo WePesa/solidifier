@@ -35,6 +35,7 @@ class SolKeywords:
     key_idx_access = 'IndexAccess'
     key_pragma = 'PragmaDirective'
     key_mapping = 'Mapping'
+    key_type_address = 'address'
 
 
 """
@@ -188,6 +189,8 @@ class CTranslator:
 
     def t_identifier(self, data):
         self.add(data['attributes']['value'])
+        if data['attributes']['type'] == self.keywords.key_type_address:
+            self.add('.x')
 
     def t_literal(self, data):
         self.add(data['attributes']['value'])
@@ -235,13 +238,19 @@ class CTranslator:
                 self.add_line(';')
             
     def t_function_call(self, data):
-        self.translate(data['children'][0])
-        self.add('(')
-        for i in range(1, len(data['children'])):
-            if i > 1:
-                self.add(',')
-            self.translate(data['children'][i])
-        self.add(')')
+        c = data['children'][0]
+        if c['name'] == self.keywords.key_member_access and c['children'][0]['attributes']['type'] ==self.keywords.key_type_address and c['attributes']['member_name'] == 'send':
+            self.add('address_send(&this, &' + c['children'][0]['attributes']['value'] + ', ');
+            self.translate(data['children'][1]);
+            self.add(')')
+        else:
+            self.translate(data['children'][0])
+            self.add('(')
+            for i in range(1, len(data['children'])):
+                if i > 1:
+                    self.add(',')
+                self.translate(data['children'][i])
+            self.add(')')
 
     def t_member_access(self, data):
         member_name = data['attributes']['member_name']
