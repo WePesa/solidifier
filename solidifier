@@ -3,8 +3,8 @@
 """Solidifier.
 
 Usage:
-    solidifier.py [verify | translate] [-o <outfile>] [-c <cfile>] [--verbose] <solfile> 
-    solidifier.py -h | --help | --version
+    solidifier [verify | translate] [-o <outfile>] [-c <cfile>] [--verbose] <solfile> 
+    solidifier -h | --help | --version
 
 Options:
     verify      Verify the solifity code.
@@ -66,30 +66,42 @@ if __name__ == '__main__':
             print C_code
                 
     if verify:
-        if coutfile == None:
-            (_, cfile) = mkstemp(suffix='.c', dir='.')
-            with open(cfile, 'w') as f:
-                f.write(C_code)
+        try:
+            if coutfile == None:
+                (_, cfile) = mkstemp(suffix='.c', dir='.')
+                with open(cfile, 'w') as f:
+                    f.write(C_code)
+            seahorn_process = subprocess.Popen(['sea', 'pf', cfile], stdout=subprocess.PIPE)
 
-        seahorn_process = subprocess.Popen(['sea', 'pf', cfile], stdout=subprocess.PIPE)
-        out, err = seahorn_process.communicate()
-        if verbose:
-            if outname != None:
-                with open(outname, 'w') as f:
-                    f.write(out)
+            out, err = seahorn_process.communicate()
+            if verbose:
+                if outname != None:
+                    with open(outname, 'w') as f:
+                        f.write(out)
+                else:
+                    print out
+            if seahorn_process.returncode != 0:
+                #print 'Verification error:\n', err
+                #sys.exit(seahorn_process.returncode)
+                print 'Solidifier: unsupported feature'
+                sys.exit(0)
+            result = out.split('\n')
+            if 'unsat' in result:
+                print 'Your program is safe!'
             else:
                 print out
-        if seahorn_process.returncode != 0:
-            #print 'Verification error:\n', err
-            #sys.exit(seahorn_process.returncode)
-            print 'Solidifier: contract contains unsupported features'
-        result = out.split('\n')
-        if 'unsat' in result:
-            print 'Your program is safe!'
-        else:
-            print 'Your program has a bug!'
+            if seahorn_process.returncode != 0:
+                #print 'Verification error:\n', err
+                #sys.exit(seahorn_process.returncode)
+                print 'Solidifier: contract contains unsupported features'
+            result = out.split('\n')
+            if 'unsat' in result:
+                print 'Your program is safe!'
+            else:
+                print 'Your program has a bug!'
 
-        if coutfile == None:
-            os.remove(cfile)
+        finally:
+            if coutfile == None:
+                os.remove(cfile)
 
         sys.exit(0)
