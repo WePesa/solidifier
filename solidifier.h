@@ -6,8 +6,14 @@
 
 typedef int bool;
 typedef int uint;
-typedef int bytes32;
 typedef int uint256;
+typedef int bytes32;
+
+void
+bytes_copy(char *from, char *to, int bytes)
+{
+    while(bytes-- >= 0) to[bytes] = from[bytes];
+}
 
 #define NONDET_SIZE
 
@@ -38,3 +44,16 @@ void
 throw()
 {
 }
+
+struct _message
+{
+    bytes32 data;
+    uint gas;
+    address sender;
+    bytes32 sig;
+    uint value;
+};
+
+typedef struct _message message;
+
+message msg;

@@ -36,7 +36,11 @@ class SolKeywords:
     key_pragma = 'PragmaDirective'
     key_mapping = 'Mapping'
     key_type_address = 'address'
+    key_type_uint = 'uint'
     key_throw = 'Throw'
+    key_length = 'length'
+    key_storage_ptr = 'storage pointer'
+    key_storage = 'storage'
 
 
 """
@@ -70,6 +74,21 @@ class CTranslator:
     mappings = None
 
     """
+    Array structs
+    """
+    array_structs = None
+
+    """
+    Extra header
+    """
+    extra_header = None
+
+    """
+    Header flag
+    """
+    add_to_header = None
+
+    """
     Helper functions
     """
     def error(self, msg):
@@ -84,27 +103,47 @@ class CTranslator:
             self.error('Node of type ' + keyword + ' has type ' + data['name'])
 
     def add_line(self, code):
-        self.C_source += code + '\n'
+        if not self.add_to_header:
+            self.C_source += code + '\n'
+        else:
+            self.extra_header += code + '\n'
 
     def add(self, code):
-        self.C_source += code
+        if not self.add_to_header:
+            self.C_source += code
+        else:
+            self.extra_header += code
 
     def add_newline(self):
-        self.C_source += '\n'
+        if not self.add_to_header:
+            self.C_source += '\n'
+        else:
+            self.extra_header += '\n'
 
     def add_commentline(self, comment):
-        self.C_source += '//' + comment + '\n'
+        if not self.add_to_header:
+            self.C_source += '//' + comment + '\n'
+        else:
+            self.extra_header += '//' + comment + '\n'
 
     def add_comment(self, comment):
-        self.C_source += '//' + comment
+        if not self.add_to_header:
+            self.C_source += '//' + comment
+        else:
+            self.extra_header += '//' + comment
 
     def close_command(self, cname):
         return cname in ['UnaryOperation', 'Assignment', 'VariableDeclaration', 'VariableDefinitionStatement', 'FunctionCall', 'ExpressionStatement']
 
     def create_mapping(self, mapping, type1, type2):
         line = 'struct _' + mapping + '\n{\n\tuint id;\n\t' + type2 + ' data[NONDET_SIZE];\n};\ntypedef struct _' + mapping + ' ' + mapping + ';\n'
-        self.add_line(line)
+        self.extra_header += '\n' + line + '\n'
         self.mappings.append(mapping)
+
+    def create_array_struct(self, atype):
+        line = 'struct _array_' + atype + '\n{\n\tuint length;\n\t' + atype + ' data[NONDET_SIZE];\n};\ntypedef struct _array_' + atype + ' array_' + atype + ';\n'
+        self.extra_header += '\n' + line + '\n'
+        self.array_structs.append(atype)
 
 
     """
@@ -131,12 +170,17 @@ class CTranslator:
         at = data['attributes']
         if at['name'] in self.verif_functions:
             return
+        self.functions.append(at['name'])
         params_node = data['children'][0]
         ret_node = data['children'][1]
         block_node = data['children'][2]
         ret_type = 'void'
+        ret_var = ''
+        ret_var_node = None
         if len(ret_node['children']) > 0:
             ret_type = ret_node['children'][0]['children'][0]['attributes']['name']
+            ret_var = ret_node['children'][0]['attributes']['name']
+            ret_var_node = ret_node['children'][0]
         f_sig = ret_type + ' ' + at['name']
         self.add(f_sig)
         self.add('(')
@@ -147,7 +191,11 @@ class CTranslator:
             self.translate(param)
         self.add_line(')')
         self.add_line('{')
+        if len(ret_var) > 0:
+            self.add_line(ret_type + ' ' + ret_var + ';')
         self.translate(block_node)
+        if len(ret_var) > 0:
+            self.add_line('return ' + ret_var + ';')
         self.add_line('}')
 
     def t_param_list(self, data):
@@ -164,13 +212,10 @@ class CTranslator:
         var_name = at['name']
         c0 = data['children'][0]
         if c0['name'] == self.keywords.key_array_typename:
-            self.translate(c0['children'][0])
-            self.add(' ' + var_name + '[')
-            if len(c0['children']) > 1:
-                self.translate(c0['children'][1])
-            else:
-                self.add('NONDET_SIZE')
-            self.add(']')
+            atype = c0['children'][0]['attributes']['name']
+            self.create_array_struct(atype)
+            new_type = 'array_' + atype
+            self.add(new_type + ' ' + var_name);
         else:
             self.t_children(data)
             self.add(' ' + var_name)
@@ -226,12 +271,14 @@ class CTranslator:
 
     def t_struct(self, data):
         sname = data['attributes']['name']
+        self.add_to_header = True
         self.add_line('struct ' + '_' + sname)
         self.add_line('{')
         self.t_children(data)
         self.add_newline()
         self.add_line('};')
         self.add_line('typedef struct _' + sname + ' ' + sname + ';')
+        self.add_to_header = False
 
     def t_if(self, data):
         self.add('if (')
@@ -258,10 +305,23 @@ class CTranslator:
             
     def t_function_call(self, data):
         c = data['children'][0]
-        if c['name'] == self.keywords.key_member_access and c['children'][0]['attributes']['type'] ==self.keywords.key_type_address and c['attributes']['member_name'] == 'send':
-            self.add('address_send(&this, &' + c['children'][0]['attributes']['value'] + ', ');
-            self.translate(data['children'][1]);
-            self.add(')')
+        if c['name'] == self.keywords.key_member_access:
+            t = c['children'][0]['attributes']['type']
+            n = c['children'][0]['attributes']['value']
+            f = c['attributes']['member_name']
+            if t == self.keywords.key_type_address:
+                if f == 'send':
+                    self.add('address_send(&this, &' + n + ', ')
+                    self.translate(data['children'][1])
+                    self.add(')')
+                else:
+                    self.not_supported('method ' + f + ' of type ' + self.keywords.key_type_address)
+            elif self.keywords.key_storage_ptr in t:
+                if f == 'push':
+                    self.add(n + '.data[' + n + '.length++] = ')
+                    self.translate(data['children'][1])
+                else:
+                    self.not_supported('method ' + f + ' of type ' + self.keywords.key_array_typename)
         else:
             self.translate(data['children'][0])
             self.add('(')
@@ -275,6 +335,8 @@ class CTranslator:
         member_name = data['attributes']['member_name']
         self.t_children(data)
         self.add('.' + member_name)
+        if data['attributes']['type'] == self.keywords.key_type_address:
+            self.add('.x')
 
     def t_assignment(self, data):
         self.translate(data['children'][0])
@@ -283,7 +345,10 @@ class CTranslator:
 
     def t_elem_typename_expr(self, data):
         self.add('(')
-        self.add(data['attributes']['value'])
+        if data['attributes']['value'] == self.keywords.key_type_address:
+            self.add(self.keywords.key_type_uint)
+        else:
+            self.add(data['attributes']['value'])
         self.add(')')
 
     def t_elem_typename(self, data):
@@ -323,7 +388,8 @@ class CTranslator:
 
     def t_idx_access(self, data):
         self.translate(data['children'][0])
-        if 'mapping' in data['children'][0]['attributes']['type']:
+        atype = data['children'][0]['attributes']['type']
+        if 'mapping' in atype or self.keywords.key_storage in atype:
             self.add('.data')
         self.add('[')
         self.translate(data['children'][1])
@@ -369,11 +435,15 @@ class CTranslator:
     def translate_to_C(self, fname):
         json_data = open(fname)
         data = json.load(json_data)
-        self.C_source = self.C_header
+        self.C_source = '' 
         self.mappings = []
+        self.array_structs = []
+        self.extra_header = ''
+        self.add_to_header = True
+        self.functions = []
         self.translate(data)
         json_data.close()
-        return self.C_source
+        return self.C_header + '\n' +  self.extra_header + '\n' + self.C_source
 
     """
     Constructor
