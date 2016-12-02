@@ -4,3 +4,4 @@
 2. Decide how to represent the data types from Solidity in C.
   * Mapping - maybe we can use some verified hashmap for C?
   * Do we limit the datatypes to 32 bits or represent them using a struct?
+3. Map modifiers, simple solution is call the modifier everytime you call the function
