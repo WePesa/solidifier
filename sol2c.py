@@ -89,6 +89,11 @@ class CTranslator:
     add_to_header = None
 
     """
+    True if code inside a function call
+    """
+    in_fcall = None
+
+    """
     Helper functions
     """
     def error(self, msg):
@@ -145,6 +150,20 @@ class CTranslator:
         self.extra_header += '\n' + line + '\n'
         self.array_structs.append(atype)
 
+    def create_struct_constructor(self, data):
+        sname = data['attributes']['name']
+        self.add(sname + '\n' + 'constructor_' + sname + '(')
+        for i in range(len(data['children'])):
+            if i > 0:
+                self.add(',')
+            self.translate(data['children'][i])
+        self.add(')\n{\n\t' + sname + ' tmp_var = {')
+        for i in range(len(data['children'])):
+            if i > 0:
+                self.add(',')
+            self.add(data['children'][i]['attributes']['name'])
+        self.add('};\n\treturn tmp_var;\n}')
+
 
     """
     Translators
@@ -170,7 +189,6 @@ class CTranslator:
         at = data['attributes']
         if at['name'] in self.verif_functions:
             return
-        self.functions.append(at['name'])
         params_node = data['children'][0]
         ret_node = data['children'][1]
         block_node = data['children'][2]
@@ -221,8 +239,12 @@ class CTranslator:
             self.add(' ' + var_name)
         
     def t_var_def_stat(self, data):
-        self.translate(data['children'][0])
+        c = data['children'][0]
+        self.translate(c)
         if len(data['children']) > 1:
+            if c['attributes']['type'] == self.keywords.key_type_address:
+                self.add_line(';')
+                self.add(c['attributes']['name'] + '.x')
             self.add(' = ')
             self.translate(data['children'][1])
 
@@ -251,7 +273,8 @@ class CTranslator:
     def t_identifier(self, data):
         self.add(data['attributes']['value'])
         if data['attributes']['type'] == self.keywords.key_type_address:
-            self.add('.x')
+            if not self.in_fcall:
+                self.add('.x')
 
     def t_literal(self, data):
         self.add(data['attributes']['value'])
@@ -278,6 +301,7 @@ class CTranslator:
         self.add_newline()
         self.add_line('};')
         self.add_line('typedef struct _' + sname + ' ' + sname + ';')
+        self.create_struct_constructor(data)
         self.add_to_header = False
 
     def t_if(self, data):
@@ -304,6 +328,7 @@ class CTranslator:
             #    self.add_line(';')
             
     def t_function_call(self, data):
+        self.in_fcall = True
         c = data['children'][0]
         if c['name'] == self.keywords.key_member_access:
             t = c['children'][0]['attributes']['type']
@@ -316,13 +341,15 @@ class CTranslator:
                     self.add(')')
                 else:
                     self.not_supported('method ' + f + ' of type ' + self.keywords.key_type_address)
-            elif self.keywords.key_storage_ptr in t:
+            elif self.keywords.key_storage in t:
                 if f == 'push':
                     self.add(n + '.data[' + n + '.length++] = ')
                     self.translate(data['children'][1])
                 else:
                     self.not_supported('method ' + f + ' of type ' + self.keywords.key_array_typename)
         else:
+            if 'struct' in data['attributes']['type'] :
+                self.add('constructor_')
             self.translate(data['children'][0])
             self.add('(')
             for i in range(1, len(data['children'])):
@@ -330,6 +357,7 @@ class CTranslator:
                     self.add(',')
                 self.translate(data['children'][i])
             self.add(')')
+        self.in_fcall = False
 
     def t_member_access(self, data):
         member_name = data['attributes']['member_name']
@@ -440,7 +468,7 @@ class CTranslator:
         self.array_structs = []
         self.extra_header = ''
         self.add_to_header = True
-        self.functions = []
+        self.in_fcall = False
         self.translate(data)
         json_data.close()
         return self.C_header + '\n' +  self.extra_header + '\n' + self.C_source
