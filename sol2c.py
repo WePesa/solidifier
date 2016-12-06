@@ -379,10 +379,7 @@ class CTranslator:
         self.t_children(data)
         self.add('.' + member_name)
         if data['attributes']['type'] == self.keywords.key_type_address:
-            if data['children'][0]['attributes']['type'] == self.keywords.key_type_msg and member_name == 'sender':
-                self.add('->x')
-            else:
-                self.add('.x')
+            self.add('.x')
 
     def t_assignment(self, data):
         self.translate(data['children'][0])
