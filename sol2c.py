@@ -41,6 +41,8 @@ class SolKeywords:
     key_length = 'length'
     key_storage_ptr = 'storage pointer'
     key_storage = 'storage'
+    key_type_msg = 'msg'
+    key_tuple_expr = 'TupleExpression'
 
 
 """
@@ -141,11 +143,15 @@ class CTranslator:
         return cname in ['UnaryOperation', 'Assignment', 'VariableDeclaration', 'VariableDefinitionStatement', 'FunctionCall', 'ExpressionStatement']
 
     def create_mapping(self, mapping, type1, type2):
+        if mapping in self.mappings:
+            return
         line = 'struct _' + mapping + '\n{\n\tuint id;\n\t' + type2 + ' data[NONDET_SIZE];\n};\ntypedef struct _' + mapping + ' ' + mapping + ';\n'
         self.extra_header += '\n' + line + '\n'
         self.mappings.append(mapping)
 
     def create_array_struct(self, atype):
+        if atype in self.array_structs:
+            return
         line = 'struct _array_' + atype + '\n{\n\tuint length;\n\t' + atype + ' data[NONDET_SIZE];\n};\ntypedef struct _array_' + atype + ' array_' + atype + ';\n'
         self.extra_header += '\n' + line + '\n'
         self.array_structs.append(atype)
@@ -171,7 +177,7 @@ class CTranslator:
     def t_children(self, data):
         for c in data['children']:
             self.translate(c)
-            if data['name'] in [self.keywords.key_block, self.keywords.key_contract, self.keywords.key_struct]:
+            if data['name'] in [self.keywords.key_block, self.keywords.key_contract, self.keywords.key_struct, self.keywords.key_for]:
                 if self.close_command(c['name']):
                     self.add_line(';')
 
@@ -202,13 +208,21 @@ class CTranslator:
         f_sig = ret_type + ' ' + at['name']
         self.add(f_sig)
         self.add('(')
+        new_defs = ''
         for i in range(0, len(params_node['children'])):
             if i > 0:
                 self.add(',')
             param = params_node['children'][i]
-            self.translate(param)
+            ctype = param['attributes']['type']
+            if ctype == self.keywords.key_type_address:
+                cname = param['attributes']['name']
+                self.add('uint ' + cname + '_real_x')
+                new_defs += 'address ' + cname + ';\n' + cname + '.x = ' + cname + '_real_x;\n';
+            else:
+                self.translate(param)
         self.add_line(')')
         self.add_line('{')
+        self.add_line(new_defs)
         if len(ret_var) > 0:
             self.add_line(ret_type + ' ' + ret_var + ';')
         self.translate(block_node)
@@ -271,10 +285,10 @@ class CTranslator:
         self.translate(op1)
 
     def t_identifier(self, data):
-        self.add(data['attributes']['value'])
+        iname = data['attributes']['value']
+        self.add(iname)
         if data['attributes']['type'] == self.keywords.key_type_address:
-            if not self.in_fcall:
-                self.add('.x')
+            self.add('.x')
 
     def t_literal(self, data):
         self.add(data['attributes']['value'])
@@ -343,8 +357,9 @@ class CTranslator:
                     self.not_supported('method ' + f + ' of type ' + self.keywords.key_type_address)
             elif self.keywords.key_storage in t:
                 if f == 'push':
-                    self.add(n + '.data[' + n + '.length++] = ')
+                    self.add(n + '.data[' + n + '.length] = ')
                     self.translate(data['children'][1])
+                    self.add(';\n' + n + '.length++')
                 else:
                     self.not_supported('method ' + f + ' of type ' + self.keywords.key_array_typename)
         else:
@@ -364,11 +379,14 @@ class CTranslator:
         self.t_children(data)
         self.add('.' + member_name)
         if data['attributes']['type'] == self.keywords.key_type_address:
-            self.add('.x')
+            if data['children'][0]['attributes']['type'] == self.keywords.key_type_msg and member_name == 'sender':
+                self.add('->x')
+            else:
+                self.add('.x')
 
     def t_assignment(self, data):
         self.translate(data['children'][0])
-        self.add(' = ')
+        self.add(data['attributes']['operator'])
         self.translate(data['children'][1])
 
     def t_elem_typename_expr(self, data):
@@ -417,7 +435,7 @@ class CTranslator:
     def t_idx_access(self, data):
         self.translate(data['children'][0])
         atype = data['children'][0]['attributes']['type']
-        if 'mapping' in atype or self.keywords.key_storage in atype:
+        if 'mapping' in atype or self.keywords.key_storage in atype or 'memory' in atype:
             self.add('.data')
         self.add('[')
         self.translate(data['children'][1])
@@ -444,6 +462,11 @@ class CTranslator:
 
     def t_throw(self, data):
         self.add_line('throw();')
+
+    def t_tuple_expr(self, data):
+        self.add('(')
+        self.t_children(data)
+        self.add(')')
         
 
     """
@@ -477,7 +500,7 @@ class CTranslator:
     Constructor
     """
     def __init__(self):
-        self.verif_functions = ['assume', 'assert', 'nondet_uint']
+        self.verif_functions = ['assume', 'assert', 'nondet_uint', 'nondet_address', 'set_msg_sender']
         self.C_header = '#include "seahorn/seahorn.h"\n#include "solidifier.h"\n'
         self.keywords = SolKeywords()
         self.function_list = {
@@ -511,5 +534,6 @@ class CTranslator:
                 self.keywords.key_pragma : self.t_pragma,
                 self.keywords.key_mapping : self.t_mapping,
                 self.keywords.key_throw : self.t_throw,
+                self.keywords.key_tuple_expr : self.t_tuple_expr,
                 }
 

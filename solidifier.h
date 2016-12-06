@@ -2,12 +2,15 @@
 
 #define assert sassert
 #define solidifier_main main
-#define nondet_uint nondet
 
 typedef int bool;
 typedef int uint;
 typedef int uint256;
 typedef int bytes32;
+
+uint nondet();
+uint nondet_uint() { return nondet(); }
+uint nondet_address() { return nondet(); }
 
 void
 bytes_copy(char *from, char *to, int bytes)
@@ -57,3 +60,10 @@ struct _message
 typedef struct _message message;
 
 message msg;
+
+void
+set_msg_sender(uint x)
+{
+    msg.sender.x = x;
+}
+
