@@ -71,8 +71,3 @@ typedef int int232;
 typedef int int240;
 typedef int int248;
 typedef int int256;
-
-
-
-typedef int bytes32;
-
