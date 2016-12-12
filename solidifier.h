@@ -2,7 +2,8 @@
 
 #define assert sassert
 #define solidifier_main main
-#include "types.h"
+#include "inttypes.h"
+#include "bytetypes.h"
 
 uint nondet();
 uint nondet_uint() { return nondet(); }
