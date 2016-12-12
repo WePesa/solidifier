@@ -242,6 +242,10 @@ class CTranslator:
     def t_var_decl(self, data):
         at = data['attributes']
         var_name = at['name']
+        if data['children'] == []:
+            self.t_children(data)
+            self.add(at['type'] + ' ' + var_name)
+            return
         c0 = data['children'][0]
         if c0['name'] == self.keywords.key_array_typename:
             atype = c0['children'][0]['attributes']['name']

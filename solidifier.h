@@ -2,11 +2,7 @@
 
 #define assert sassert
 #define solidifier_main main
-
-typedef int bool;
-typedef int uint;
-typedef int uint256;
-typedef int bytes32;
+#include "types.h"
 
 uint nondet();
 uint nondet_uint() { return nondet(); }
